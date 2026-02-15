@@ -1,26 +1,34 @@
-name: Keep Backend Alive
+name: Keep Backend & Database Alive
 
 on:
   schedule:
-    # Run every 5 minutes
-    - cron: '*/5 * * * *'
-  workflow_dispatch:  # Allows manual trigger
+    # Run every 10 minutes to keep both services active
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
 
 jobs:
-  ping-backend:
+  keep-alive:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping the backend
+      - name: Ping Backend Health Check
         run: |
-          response=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.BACKEND_URL }}/ping)
+          echo "🏓 Pinging backend..."
+          response=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.BACKEND_URL }}/health)
           if [ $response -eq 200 ]; then
-            echo "✅ Backend is alive! Response: $response"
+            echo "✅ Backend is alive! (HTTP $response)"
           else
-            echo "⚠️ Backend responded with: $response"
+            echo "⚠️ Backend returned HTTP $response"
             exit 1
           fi
       
-      - name: Health check
+      - name: Ping Database via Backend
+        run: |
+          echo "💾 Checking database connection..."
+          curl -s ${{ secrets.BACKEND_URL }}/health | jq .
+          echo "✅ Database check complete"
+      
+      - name: Lightweight Ping
         if: always()
         run: |
-          curl -s ${{ secrets.BACKEND_URL }}/health || echo "Health check failed"
+          echo "🔄 Quick ping to keep service warm..."
+          curl -s ${{ secrets.BACKEND_URL }}/ping || echo "Ping failed but continuing"
