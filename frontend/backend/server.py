@@ -132,7 +132,32 @@ async def startup_event():
         await db.create_admin("admin", hashed)
         logging.info("Default admin created: username=admin, password=admin123")
 
-# Auth Routes
+# ============================================================================
+# HEALTH & KEEP-ALIVE ENDPOINTS
+# ============================================================================
+
+@app.get("/")
+async def root():
+    """Root endpoint"""
+    return {"message": "CodeKriti API", "status": "running", "health": "/health"}
+
+@app.get("/health")
+async def health_check():
+    """Health check for monitoring"""
+    try:
+        await db.get_timer_config()
+        return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
+    except:
+        return {"status": "unhealthy", "timestamp": datetime.now(timezone.utc).isoformat()}
+
+@app.get("/ping")
+async def ping():
+    """Lightweight ping for cron jobs"""
+    return {"status": "pong"}
+
+# ============================================================================
+# AUTH ROUTES
+# ============================================================================
 @api_router.post("/auth/login", response_model=LoginResponse)
 async def login(req: LoginRequest):
     if req.role == "admin":
