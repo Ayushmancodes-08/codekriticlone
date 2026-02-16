@@ -6,10 +6,12 @@ import JudgeDashboard from '@/pages/JudgeDashboard';
 import TeamDashboard from '@/pages/TeamDashboard';
 import PublicLeaderboard from '@/pages/PublicLeaderboard';
 import { Toaster } from '@/components/ui/sonner';
+import GlobalLoader from '@/components/GlobalLoader';
 
 function App() {
   return (
     <div className="App">
+      <GlobalLoader />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Login />} />

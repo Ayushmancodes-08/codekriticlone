@@ -4,6 +4,7 @@ import { api, saveAuth } from '@/utils/api';
 import { toast } from 'sonner';
 import { Users, Gavel, Trophy } from 'lucide-react';
 
+
 export default function Login() {
   const [role, setRole] = useState('team');
   const [identifier, setIdentifier] = useState('');
@@ -106,11 +107,10 @@ export default function Login() {
                     type="button"
                     data-testid={`role-${r}-btn`}
                     onClick={() => setRole(r)}
-                    className={`py-3 px-4 rounded-xl font-semibold capitalize transition-all duration-300 ${
-                      role === r
-                        ? 'bg-cyan-500 text-black shadow-[0_0_20px_rgba(6,182,212,0.4)]'
-                        : 'bg-slate-900/50 text-slate-300 hover:bg-slate-800/70 border border-white/10'
-                    }`}
+                    className={`py-3 px-4 rounded-xl font-semibold capitalize transition-all duration-300 ${role === r
+                      ? 'bg-cyan-500 text-black shadow-[0_0_20px_rgba(6,182,212,0.4)]'
+                      : 'bg-slate-900/50 text-slate-300 hover:bg-slate-800/70 border border-white/10'
+                      }`}
                   >
                     {r}
                   </button>
@@ -124,8 +124,8 @@ export default function Login() {
                 {role === 'admin'
                   ? 'Username'
                   : role === 'judge'
-                  ? 'Judge ID'
-                  : 'Team Name'}
+                    ? 'Judge ID'
+                    : 'Team Name'}
               </label>
               <input
                 type="text"
