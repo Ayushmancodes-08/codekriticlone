@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useGlobalLoading } from '@/hooks/useGlobalLoading';
-import Loader from '@/components/Loader';
+import SkeletonLoader from '@/components/SkeletonLoader';
 
 const GlobalLoader = () => {
     const isLoading = useGlobalLoading();
@@ -23,12 +23,7 @@ const GlobalLoader = () => {
 
     if (!showLoader) return null;
 
-    return (
-        <Loader
-            message="Loading... Please wait (max 6 seconds)"
-            fullScreen={true}
-        />
-    );
+    return <SkeletonLoader type="dashboard" />;
 };
 
 export default GlobalLoader;
