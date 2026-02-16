@@ -20,6 +20,42 @@ load_dotenv(ROOT_DIR / '.env')
 from websocket_manager import manager
 from supabase_client import db
 
+# ============================================================================
+# IN-MEMORY CACHE FOR API RESPONSES
+# ============================================================================
+
+# Simple in-memory cache with expiration
+cache_store = {}
+cache_timeout = {}
+
+def get_cached(key: str) -> Optional[any]:
+    """Get cached data if not expired"""
+    if key in cache_store and key in cache_timeout:
+        if datetime.now(timezone.utc) < cache_timeout[key]:
+            logging.info(f"Cache HIT for key: {key}")
+            return cache_store[key]
+        else:
+            # Expired, remove from cache
+            del cache_store[key]
+            del cache_timeout[key]
+            logging.info(f"Cache EXPIRED for key: {key}")
+    logging.info(f"Cache MISS for key: {key}")
+    return None
+
+def set_cache(key: str, data: any, timeout_minutes: int = 5):
+    """Set cached data with expiration"""
+    cache_store[key] = data
+    cache_timeout[key] = datetime.now(timezone.utc) + timedelta(minutes=timeout_minutes)
+    logging.info(f"Cache SET for key: {key}, expires in {timeout_minutes} min")
+
+def clear_cache(key: str):
+    """Clear specific cache key"""
+    if key in cache_store:
+        del cache_store[key]
+    if key in cache_timeout:
+        del cache_timeout[key]
+    logging.info(f"Cache CLEARED for key: {key}")
+
 # Setup upload directory
 UPLOAD_DIR = ROOT_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -203,6 +239,10 @@ async def create_judge(judge: JudgeCreate, payload: dict = Depends(verify_token)
     
     hashed = hash_password(judge.password)
     await db.create_judge(judge.judge_id, judge.name, hashed)
+    
+    # Clear judges cache since we added a new judge
+    clear_cache("judges_list")
+    
     return {"judge_id": judge.judge_id, "name": judge.name}
 
 @api_router.get("/admin/judges", response_model=List[JudgeResponse])
@@ -210,7 +250,13 @@ async def get_judges(payload: dict = Depends(verify_token)):
     if payload.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     
+    # Check cache first (10 min cache for judges - rarely change)
+    cached = get_cached("judges_list")
+    if cached is not None:
+        return cached
+    
     judges = await db.get_all_judges()
+    set_cache("judges_list", judges, timeout_minutes=10)
     return judges
 
 @api_router.post("/admin/criteria", response_model=CriteriaResponse)
@@ -221,6 +267,10 @@ async def create_criteria(criteria: CriteriaCreate, payload: dict = Depends(veri
     from uuid import uuid4
     criteria_id = str(uuid4())
     await db.create_criteria(criteria_id, criteria.name, criteria.max_score)
+    
+    # Clear criteria cache since we added new criteria
+    clear_cache("criteria_list")
+    
     return {"id": criteria_id, "name": criteria.name, "max_score": criteria.max_score}
 
 @api_router.get("/admin/criteria", response_model=List[CriteriaResponse])
@@ -228,7 +278,13 @@ async def get_criteria(payload: dict = Depends(verify_token)):
     if payload.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     
+    # Check cache first (10 min cache for criteria - rarely change)
+    cached = get_cached("criteria_list")
+    if cached is not None:
+        return cached
+    
     criteria = await db.get_all_criteria()
+    set_cache("criteria_list", criteria, timeout_minutes=10)
     return criteria
 
 @api_router.delete("/admin/criteria/{criteria_id}")
@@ -237,6 +293,10 @@ async def delete_criteria(criteria_id: str, payload: dict = Depends(verify_token
         raise HTTPException(status_code=403, detail="Admin access required")
     
     deleted_count = await db.delete_criteria(criteria_id)
+    
+    # Clear criteria cache since we deleted criteria
+    clear_cache("criteria_list")
+    
     if deleted_count == 0:
         raise HTTPException(status_code=404, detail="Criteria not found")
     return {"message": "Criteria deleted"}
