@@ -242,6 +242,7 @@ async def create_judge(judge: JudgeCreate, payload: dict = Depends(verify_token)
     
     # Clear judges cache since we added a new judge
     clear_cache("judges_list")
+    clear_cache("admin_init_data")  # Also clear bundled data
     
     return {"judge_id": judge.judge_id, "name": judge.name}
 
@@ -270,6 +271,7 @@ async def create_criteria(criteria: CriteriaCreate, payload: dict = Depends(veri
     
     # Clear criteria cache since we added new criteria
     clear_cache("criteria_list")
+    clear_cache("admin_init_data")  # Also clear bundled data
     
     return {"id": criteria_id, "name": criteria.name, "max_score": criteria.max_score}
 
@@ -296,10 +298,61 @@ async def delete_criteria(criteria_id: str, payload: dict = Depends(verify_token
     
     # Clear criteria cache since we deleted criteria
     clear_cache("criteria_list")
+    clear_cache("admin_init_data")  # Also clear bundled data
     
     if deleted_count == 0:
         raise HTTPException(status_code=404, detail="Criteria not found")
     return {"message": "Criteria deleted"}
+
+# ============================================================================
+# BULK DATA FETCH - Get all dashboard data in ONE API call
+# ============================================================================
+
+@api_router.get("/admin/init-data")
+async def get_admin_init_data(payload: dict = Depends(verify_token)):
+    """Fetch ALL admin dashboard data in one call - much faster!"""
+    if payload.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Check cache first (5 min cache for bundled data)
+    cached = get_cached("admin_init_data")
+    if cached is not None:
+        logging.info("Returning cached admin init data")
+        return cached
+    
+    # Fetch all data in parallel (well, serially but in one request)
+    judges = await db.get_all_judges()
+    criteria = await db.get_all_criteria()
+    teams = await db.get_all_teams()
+    timer_config = await db.get_timer_config()
+    team_config = await db.get_team_config()
+    
+    # Calculate timer data if active
+    timer_data = None
+    if timer_config:
+        end_dt = datetime.fromisoformat(timer_config['end_time'].replace('Z', '+00:00'))
+        now = datetime.now(timezone.utc)
+        time_remaining = int((end_dt - now).total_seconds()) if end_dt > now else 0
+        timer_data = {
+            "end_time": timer_config['end_time'],
+            "is_active": timer_config['is_active'],
+            "time_remaining": time_remaining if timer_config['is_active'] else None
+        }
+    
+    # Bundle everything together
+    result = {
+        "judges": judges,
+        "criteria": criteria,
+        "teams": teams,
+        "timer": timer_data,
+        "has_team_password": team_config is not None
+    }
+    
+    # Cache for 5 minutes
+    set_cache("admin_init_data", result, timeout_minutes=5)
+    logging.info("Cached admin init data")
+    
+    return result
 
 @api_router.post("/admin/set-team-password")
 async def set_team_password(data: TeamPasswordSet, payload: dict = Depends(verify_token)):
