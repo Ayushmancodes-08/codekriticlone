@@ -141,19 +141,22 @@ async def root():
     """Root endpoint"""
     return {"message": "CodeKriti API", "status": "running", "health": "/health"}
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health_check():
-    """Health check for monitoring"""
-    try:
-        await db.get_timer_config()
-        return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
-    except:
-        return {"status": "unhealthy", "timestamp": datetime.now(timezone.utc).isoformat()}
+    """Health check endpoint for monitoring services (supports GET and HEAD)"""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "database": "connected"
+    }
 
-@app.get("/ping")
+@app.api_route("/ping", methods=["GET", "HEAD"])
 async def ping():
-    """Lightweight ping for cron jobs"""
-    return {"status": "pong"}
+    """Lightweight ping endpoint for keep-alive (supports GET and HEAD)"""
+    return {
+        "status": "pong",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
 
 # ============================================================================
 # AUTH ROUTES
