@@ -1,15 +1,31 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGlobalLoading } from '@/hooks/useGlobalLoading';
 import Loader from '@/components/Loader';
 
 const GlobalLoader = () => {
     const isLoading = useGlobalLoading();
+    const [showLoader, setShowLoader] = useState(false);
 
-    if (!isLoading) return null;
+    useEffect(() => {
+        if (isLoading) {
+            setShowLoader(true);
+
+            // Auto-hide loader after 6 seconds maximum
+            const timeout = setTimeout(() => {
+                setShowLoader(false);
+            }, 6000); // 6 seconds max
+
+            return () => clearTimeout(timeout);
+        } else {
+            setShowLoader(false);
+        }
+    }, [isLoading]);
+
+    if (!showLoader) return null;
 
     return (
         <Loader
-            message="Loading... If this is your first request, the server might be waking up (5-10 seconds)"
+            message="Loading... Please wait (max 6 seconds)"
             fullScreen={true}
         />
     );
